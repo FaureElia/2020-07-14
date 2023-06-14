@@ -37,7 +37,20 @@ public class PremierLeagueDAO {
 	}
 	
 	public List<Team> listAllTeams(){
-		String sql = "SELECT * FROM Teams";
+		String sql = "SELECT v.TeamID AS TeamId, t.Name AS Name, (pareggi*1)+(vittorie*3) AS punti "
+				+ "FROM \r\n"
+				+ "(SELECT t.TeamID, COUNT(*) AS pareggi "
+				+ "FROM matches m, teams t "
+				+ "WHERE  m.ResultOfTeamHome=0 AND (m.TeamHomeID=t.TeamID OR m.TeamAwayID=t.TeamID) "
+				+ "GROUP BY t.TeamID) p, "
+				+ "(SELECT t.TeamID, COUNT(*) AS vittorie "
+				+ "FROM matches m, teams t "
+				+ "WHERE  (m.ResultOfTeamHome=1 AND m.TeamHomeID=t.TeamID) OR (m.TeamAwayID=t.TeamID AND m.ResultOfTeamHome=-1) "
+				+ "GROUP BY t.TeamID) v, "
+				+ "teams t "
+				+ "WHERE v.TeamID=p.TeamID AND t.TeamID=v.TeamID "
+				+ "ORDER BY punti desc ";
+		
 		List<Team> result = new ArrayList<Team>();
 		Connection conn = DBConnect.getConnection();
 
@@ -46,7 +59,7 @@ public class PremierLeagueDAO {
 			ResultSet res = st.executeQuery();
 			while (res.next()) {
 
-				Team team = new Team(res.getInt("TeamID"), res.getString("Name"));
+				Team team = new Team(res.getInt("TeamID"), res.getString("Name"), res.getInt("punti"));
 				result.add(team);
 			}
 			conn.close();
@@ -110,6 +123,37 @@ public class PremierLeagueDAO {
 			e.printStackTrace();
 			return null;
 		}
+	}
+
+	public List<Match> listOrderedMatches(){
+		String sql = "SELECT m.MatchID, m.TeamHomeID, m.TeamAwayID, m.teamHomeFormation, m.teamAwayFormation, m.resultOfTeamHome, m.date, t1.Name, t2.Name   "
+				+ "FROM Matches m, Teams t1, Teams t2 "
+				+ "WHERE m.TeamHomeID = t1.TeamID AND m.TeamAwayID = t2.TeamID "
+				+ "ORDER BY m.date";
+		List<Match> result = new ArrayList<Match>();
+		Connection conn = DBConnect.getConnection();
+
+		try {
+			PreparedStatement st = conn.prepareStatement(sql);
+			ResultSet res = st.executeQuery();
+			while (res.next()) {
+
+				
+				Match match = new Match(res.getInt("m.MatchID"), res.getInt("m.TeamHomeID"), res.getInt("m.TeamAwayID"), res.getInt("m.teamHomeFormation"), 
+							res.getInt("m.teamAwayFormation"),res.getInt("m.resultOfTeamHome"), res.getTimestamp("m.date").toLocalDateTime(), res.getString("t1.Name"),res.getString("t2.Name"));
+				
+				
+				result.add(match);
+
+			}
+			conn.close();
+			return result;
+			
+		} catch (SQLException e) {
+			e.printStackTrace();
+			return null;
+		}
+		
 	}
 	
 }
